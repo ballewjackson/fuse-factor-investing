@@ -1,6 +1,10 @@
 from utils import *
+import keys as k
 
-AVapiKey = '39GO982RGG1GMTOV'
+# create a file called 'keys.py'
+# define apikey = 'your-api-key'
+# ensure it is in the working directory
+AVapiKey = k.apikey
 
 size_param = 'micro-cap'
 companySizes = {
