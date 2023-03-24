@@ -5,29 +5,30 @@ import json
 import time
 
 
-start_time = time.time()
+callStartTime = time.time()
 minuteCallCount = 0
 dailyminuteCallCount = 0
+totalCallCount = 0
 maxCallsPerMinute = 5
 maxCallsPerDay = 500
 def makeAPIcall(url):
-    global totalCallCount, minuteCallCount, dailyminuteCallCount, start_time, maxCallsPerMinute, maxCallsPerDay
-    # print("In call manager. Count:", minuteCallCount, "\tDelta Time:", time.time() - start_time)
+    global totalCallCount, minuteCallCount, dailyminuteCallCount, callStartTime, maxCallsPerMinute, maxCallsPerDay
+    # print("In call manager. Count:", minuteCallCount, "\tDelta Time:", time.time() - callStartTime)
     if minuteCallCount >= maxCallsPerMinute:
-        elapsed_time = time.time() - start_time
+        elapsed_time = time.time() - callStartTime
         if elapsed_time < 60:
             # print("In sleep. Sleeping for:", 60-elapsed_time)
             time.sleep(60 - elapsed_time)
         minuteCallCount = 0
-        start_time = time.time()
+        callStartTime = time.time()
     
     if dailyminuteCallCount >= maxCallsPerDay:
-        elapsed_time = time.time() - start_time
+        elapsed_time = time.time() - callStartTime
         if elapsed_time < 86400:
             # print("In sleep. Sleeping for:", 86400-elapsed_time)
             time.sleep(86400 - elapsed_time)
         dailyminuteCallCount = 0
-        start_time = time.time()
+        callStartTime = time.time()
 
     # Make the API call and increment the counter
     response = requests.get(url)
@@ -58,15 +59,19 @@ class Stock:
         self.value = False
         self.momentum_3m = False
         self.momentum_6m = False
-        self.momentum_1yr = 0
-        self.dividend = -1
+        self.momentum_1yr = -1
+        self.junk = False
+        self.time = 0
+        self.gold = False
+        self.qty = 0
+        
         
     def printInfo(self):
-        print(f"\n{self.fd['Name']}: {self.symbol}  {self.sector}  Size: {self.size}")
+        print(f"\n{self.fd['Name']}: {self.symbol}  {self.sector}  Size: {self.size}  Qty: {self.qty}")
         print(f"Value: {self.value}\t3M Momentum: {self.momentum_3m}")
         print(f"6M Momentum: {self.momentum_6m}\t1YR Momentum: {self.momentum_1yr}")
 
-    def fetch_data(self, apikey):
+    def fetchData(self, apikey):
         ticker = self.symbol
         url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&datatype=csv&apikey={apikey}"
         response = makeAPIcall(url)
@@ -99,6 +104,7 @@ class Stock:
                 print(f"Error fetching data for ticker {ticker}: {response.status_code}\nResponse content: {response_text}")
         else:
             print(f"Error fetching data for ticker {ticker}: {response.status_code}")
+        self.time = time.time()
 
     def analyze(self, sizeLowerBound, sizeUpperBound):
         try:
@@ -112,22 +118,33 @@ class Stock:
                 self.value = False
         if ((sizeLowerBound <= self.size) and (self.size <= sizeUpperBound)):
             self.sizeBool = True
-        self.tsda['timestamp'] = pd.to_datetime(self.tsda['timestamp'])
-        self.tsda = self.tsda.iloc[::-1]
-        self.tsda = self.tsda.set_index('timestamp')
-        self.tsda['pct_change'] = self.tsda['adjusted_close'].pct_change()
+        else:
+            self.sizeBool = False
+        if self.tsda != None:
+            self.tsda['timestamp'] = pd.to_datetime(self.tsda['timestamp'])
+            self.tsda = self.tsda.iloc[::-1]
+            self.tsda = self.tsda.set_index('timestamp')
+            self.tsda['pct_change'] = self.tsda['adjusted_close'].pct_change()
 
-        # Calculate the 3-month momentum
-        # 63 is an approximation of the number of trading days in 3 months
-        momentum_3m = self.tsda['pct_change'].rolling(window=63).mean().iloc[-1]
-        if (momentum_3m > 0):
-            self.momentum_3m = True
-        
-        momentum_6m = self.tsda['pct_change'].rolling(window=175).sum().iloc[-1]
-        if (momentum_6m > 0):
-            self.momentum_6m = True
+            # Calculate the 3-month momentum
+            # 63 is an approximation of the number of trading days in 3 months
+            momentum_3m = self.tsda['pct_change'].rolling(window=63).mean().iloc[-1]
+            if (momentum_3m > 0):
+                self.momentum_3m = True
+            
+            momentum_6m = self.tsda['pct_change'].rolling(window=175).sum().iloc[-1]
+            if (momentum_6m > 0):
+                self.momentum_6m = True
 
-        self.momentum_1yr = self.tsda['pct_change'].rolling(window=175).mean().iloc[-1]
+            self.momentum_1yr = self.tsda['pct_change'].rolling(window=175).mean().iloc[-1]
 
-        if "DividendYield" in self.fd.keys():
-            self.dividend = self.fd['DividendYield']
+def getFullStockList(apikey):
+    # getsymbols returns a dataframe of ~11k stocks and etfs
+    stockDF = getsymbols(apikey)
+    print(stockDF.head())
+    # this filters the fullset and then gets a list of the symbols
+    stocksymbolslist = stockDF[stockDF['assetType'] == 'Stock']['symbol'].tolist()
+    fullset = []
+    for str in stocksymbolslist:
+        fullset.append(Stock(str))
+    return fullset
