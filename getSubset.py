@@ -40,18 +40,39 @@ for obj in fullset:
     else:
         print(f"Error fetching data for ticker {obj.symbol}: {response.status_code}")
     obj.analyze(sizeLowerBound, sizeUpperBound)
-    print(f"Market cap: {obj.size}  bool: {obj.sizeBool}")
+    #print(f"Market cap: {obj.size}  bool: {obj.sizeBool}")
 
-tickerlist = []
+nanocapTickers = "nano-cap", []
+microcapTickers = "micro-cap", []
+smallcapTickers = "small-cap", []
+midcapTickers = "mid-cap", []
+largecapTickers = "large-cap", []
+megacapTickers = "mega-cap", []
 for obj in fullset:
-    if obj.sizeBool:
-        tickerlist.append(obj.symbol)
+    if obj.size <= -1:
+        continue
+    elif obj.size <= 50_000_000:
+        nanocapTickers[1].append(obj.symbol)
+    elif obj.size <= 300_000_000:
+        microcapTickers[1].append(obj.symbol)
+    elif obj.size <= 2_000_000_000:
+        smallcapTickers[1].append(obj.symbol)
+    elif obj.size <= 10_000_000_000:
+        midcapTickers[1].append(obj.symbol)
+    elif obj.size <= 200_00_000_000:
+        largecapTickers[1].append(obj.symbol)
+    else:
+        megacapTickers.append(obj.symbol)
+    
 
+lists = nanocapTickers, microcapTickers, smallcapTickers, midcapTickers, largecapTickers, megacapTickers
 
-savelocation = "tickerlist.data"
-print(f"{len(tickerlist)} stocks found in size range. ({sizeLowerBound}, {sizeUpperBound})")
-print(f"Saving ticker list to {savelocation}")
-with open(savelocation, "wb") as file:
-    pickle.dump(tickerlist, file)
-print("Print tickerlist:")
-print(tickerlist)
+for thing in lists:
+    tickerlist = thing[1]
+    savelocation = f"tickerlists/{thing[0]}.data"
+    print(f"{len(tickerlist)} stocks found in size range {thing[0]}.")
+    print(f"Saving {thing[0]} list to {savelocation}")
+    with open(savelocation, "wb") as file:
+        pickle.dump(tickerlist, file)
+    print("Print tickerlist:")
+    print(tickerlist)
